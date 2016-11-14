@@ -1,0 +1,6 @@
+<group>
+	<depth_min_threshold>0</depth_min_threshold>
+	<depth_max_threshold>124.95</depth_max_threshold>
+	<human_detect_threshold>60000</human_detect_threshold>
+<group/>
+</group>
