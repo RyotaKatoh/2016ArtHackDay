@@ -4,6 +4,8 @@
 
 #include "ofxGui.h"
 
+#include "Flow.hpp"
+
 
 class ofApp : public ofBaseApp{
     
@@ -27,14 +29,22 @@ public:
     ofVideoGrabber video;
     ofImage binaryImage;
 
+    ofImage prevBinaryImage;
+    ofImage opticalFlowImage;
+
     int shadowArea;
 
     vector<ofImage> sampleImages;
 
     int recognizedID;
 
+
+
     ofxPanel gui;
     ofxFloatSlider maxThreshold;
     ofxIntSlider detectThreshold;
-    
+
+    FlowFarneback fb;
+
+    ofImage debugImage;
 };

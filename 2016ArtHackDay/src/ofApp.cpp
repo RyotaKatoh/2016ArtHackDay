@@ -1,59 +1,11 @@
 #include "ofApp.h"
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/photo.hpp>
-#include <opencv2/shape.hpp>
 #include "cvUtil.h"
+#include "cv.h"
 
 int numSamples = 30;
+float resizeRate = 5.0;
 
-
-static std::vector<cv::Point> simpleContour(const cv::Mat& src)
-{
-    std::vector<std::vector<cv::Point>> contours;
-    std::vector<cv::Point> contour_points;
-    cv::findContours(src, contours, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
-    size_t contours_size = contours.size();
-
-    for (size_t border = 0; border < contours_size; border++)
-    {
-        size_t contour_size = contours[border].size();
-        for (size_t p = 0; p < contour_size; p++)
-        {
-            contour_points.push_back(contours[border][p]);
-        }
-    }
-    return contour_points;
-}
-
-int shapeRecognizer(ofImage &src, vector<ofImage> images) {
-
-    vector<cv::Point> srcContours = simpleContour(toCv(src.getPixels()));
-
-    vector< vector<cv::Point> > contours;
-    for(int i=0;i<images.size();i++){
-        vector<cv::Point> contour = simpleContour(toCv(images[i].getPixels()));
-        contours.push_back(contour);
-    }
-
-    cv::Ptr<cv::ShapeContextDistanceExtractor> mysc = cv::createShapeContextDistanceExtractor();
-
-    int minIdx = 0;
-    float minDis = INT_MAX;
-    for(int i=0;i<contours.size();i++) {
-        float d = mysc->computeDistance(srcContours, contours[i]);
-        cout<<i<<" : "<<d<<endl;
-        if (d < minDis) {
-            minDis = d;
-            minIdx = i;
-        }
-    }
-
-    return minIdx;
-}
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -74,17 +26,20 @@ void ofApp::setup(){
     video.initGrabber(640, 480);
 
 
-    //
+
     binaryImage.allocate(video.getWidth(), video.getHeight(), OF_IMAGE_GRAYSCALE);
+    prevBinaryImage.allocate(binaryImage.getWidth(), binaryImage.getHeight(), OF_IMAGE_GRAYSCALE);
+    opticalFlowImage.allocate(binaryImage.getWidth(), binaryImage.getHeight(), OF_IMAGE_GRAYSCALE);
+
 
 
     // load sample images
     ofFile file;
     for(int i=0;i<numSamples;i++){
         ofImage img;
-        if (file.doesFileExist(ofToString(i) + "jpg")){
+        if (file.doesFileExist(ofToDataPath(ofToString(i) + ".jpg"))){
             img.load(ofToString(i) + ".jpg");
-            img.resize(img.getWidth()/5., img.getHeight()/5.);
+            img.resize(img.getWidth()/resizeRate, img.getHeight()/resizeRate);
             img.setImageType(OF_IMAGE_GRAYSCALE);
             sampleImages.push_back(img);
         }
@@ -106,6 +61,8 @@ void ofApp::update(){
 
 
     shadowArea = 0;
+    prevBinaryImage = binaryImage;
+
 
     binaryImage.setFromPixels(video.getPixels());
     for(int y=0;y<video.getHeight();y++) {
@@ -122,6 +79,8 @@ void ofApp::update(){
         }
     }
     binaryImage.update();
+
+    fb.calcOpticalFlow(binaryImage);
 
 
 }
@@ -141,7 +100,45 @@ void ofApp::draw(){
         ofPopStyle();
     }
 
+
+
+    float drawX =0.0, drawY = video.getHeight() + 15.0;
+    for(int i=0;i<sampleImages.size();i++){
+        ofImage drwImg = sampleImages[i];
+        drwImg.resize(drwImg.getWidth()/2., drwImg.getHeight()/2.);
+        if (drawX + drwImg.getWidth() > ofGetWidth()) {
+            drawX = 0.0;
+            drawY += drwImg.getHeight();
+        }
+
+        drwImg.draw(drawX, drawY);
+
+        if(i == recognizedID) {
+            ofPushStyle();
+
+            ofNoFill();
+
+            ofSetColor(255, 0, 0);
+            ofSetLineWidth(5);
+            ofDrawRectangle(drawX+5, drawY+5, drwImg.getWidth()-5, drwImg.getHeight()-5);
+
+            ofPopStyle();
+        }
+        
+        drawX += drwImg.getWidth();
+    }
+
+    if(debugImage.isAllocated()) {
+        debugImage.draw(ofGetWidth()/2. - debugImage.getWidth()/2., ofGetHeight() - debugImage.getHeight());
+    }
+
+    fb.draw(video.getWidth(), video.getHeight(), 640, 480);
+
+
     gui.draw();
+
+//    ofVec2f v = fb.getTotalFlow();
+//    ofDrawBitmapString("vector (x, y) = (" + ofToString(v.x) + ", " + ofToString(v.y) + ")", 10, video.getHeight() + 10);
 
 
 }
@@ -156,10 +153,20 @@ void ofApp::keyPressed(int key){
     if (key == 'r') {
         ofImage shadowImage;
         shadowImage = binaryImage;
-        shadowImage.resize(binaryImage.getWidth()/5., binaryImage.getHeight()/5.);
+        shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
 
         recognizedID = shapeRecognizer(shadowImage, sampleImages);
     }
+
+    if (key == 't') {
+
+        ofImage shadowImage;
+        shadowImage = debugImage;
+        shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
+
+        recognizedID = shapeRecognizer(shadowImage, sampleImages);
+    }
+
 
 }
 
@@ -209,6 +216,11 @@ void ofApp::gotMessage(ofMessage msg){
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
+void ofApp::dragEvent(ofDragInfo dragInfo){
+    if(dragInfo.files.size() > 0) {
+        debugImage.load(dragInfo.files[0]);
+        debugImage.resize(debugImage.getWidth()/resizeRate, debugImage.getHeight()/resizeRate);
+        debugImage.setImageType(OF_IMAGE_GRAYSCALE);
+    }
     
 }
