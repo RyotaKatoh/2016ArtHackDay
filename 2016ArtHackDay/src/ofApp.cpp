@@ -177,46 +177,48 @@ void ofApp::draw(){
     fb.draw(video.getWidth(), video.getHeight(), 640, 480);
 
     // draw optical movement
+    if(opticalMovements.size() > movementWindowSize) {
     ofPushStyle();
     float prev = 0.0;
-    for(int i=0;i<movementWindowSize;i++){
-        prev += opticalMovements[i];
-    }
-    prev = prev / (float)movementWindowSize;
-
-    for(int i=movementWindowSize;i<opticalMovements.size();i++){
-        float now = 0.0;
-        for(int j=0;j<movementWindowSize;j++) {
-            now += opticalMovements[i-j];
+        for(int i=0;i<movementWindowSize;i++){
+            prev += opticalMovements[i];
         }
-        now = now / (float)movementWindowSize;
-
-        float nowY = ofMap(now, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
-        float prevY = ofMap(prev, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
-        float prevX = ofMap(i-1, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
-        float nowX = ofMap(i, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
-
-        ofSetLineWidth(5);
-
-        if (now > opticalThreshold) {
-            ofSetColor(236,64,122);
-        } else {
-            ofSetColor(41,182,246);
+        prev = prev / (float)movementWindowSize;
+        
+        for(int i=movementWindowSize;i<opticalMovements.size();i++){
+            float now = 0.0;
+            for(int j=0;j<movementWindowSize;j++) {
+                now += opticalMovements[i-j];
+            }
+            now = now / (float)movementWindowSize;
+            
+            float nowY = ofMap(now, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+            float prevY = ofMap(prev, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+            float prevX = ofMap(i-1, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
+            float nowX = ofMap(i, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
+            
+            ofSetLineWidth(5);
+            
+            if (now > opticalThreshold) {
+                ofSetColor(236,64,122);
+            } else {
+                ofSetColor(41,182,246);
+            }
+            
+            ofDrawLine(prevX, prevY, nowX, nowY);
+            
+            prev = now;
+            
         }
-
-        ofDrawLine(prevX, prevY, nowX, nowY);
-
-        prev = now;
-
+        ofSetColor(102,187,106);
+        float thresholdLine = ofMap(opticalThreshold, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+        ofDrawLine(video.getWidth(), thresholdLine, ofGetWidth(), thresholdLine);
+        
+        ofPopStyle();
+        ofDrawBitmapString(ofToString(opticalMovements[opticalMovements.size()-1]), ofGetWidth()/2., ofGetHeight()/2. + 15);
     }
-    ofSetColor(102,187,106);
-    float thresholdLine = ofMap(opticalThreshold, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
-    ofDrawLine(video.getWidth(), thresholdLine, ofGetWidth(), thresholdLine);
-
-    ofPopStyle();
 
 
-    ofDrawBitmapString(ofToString(opticalMovements[opticalMovements.size()-1]), ofGetWidth()/2., ofGetHeight()/2. + 15);
 
     gui.draw();
 
