@@ -64,6 +64,11 @@ int shapeRecognizer(ofImage &src, vector<ofImage> images) {
     return minIdx;
 }
 
+void medianFilter(ofImage &src) {
+
+    cv::medianBlur(toCv(src), toCv(src), 5);
+
+}
 
 
 #endif /* cv_h */

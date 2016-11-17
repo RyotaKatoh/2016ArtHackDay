@@ -4,8 +4,12 @@
 #include "cv.h"
 
 int numSamples = 30;
-float resizeRate = 5.0;
+int maxNumMovement = 6 * 30;
+int movementWindowSize = 6;
+float resizeRate = 8.0;
 
+#define HOST "localhost"
+#define PORT 12345
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -25,11 +29,11 @@ void ofApp::setup(){
     video.setDeviceID(deviceID);
     video.initGrabber(640, 480);
 
+    // set osc sender
+    sender.setup(HOST, PORT);
 
 
     binaryImage.allocate(video.getWidth(), video.getHeight(), OF_IMAGE_GRAYSCALE);
-    prevBinaryImage.allocate(binaryImage.getWidth(), binaryImage.getHeight(), OF_IMAGE_GRAYSCALE);
-    opticalFlowImage.allocate(binaryImage.getWidth(), binaryImage.getHeight(), OF_IMAGE_GRAYSCALE);
 
 
 
@@ -47,10 +51,16 @@ void ofApp::setup(){
 
 
     recognizedID = -1;
+    isMoving = false;
 
     gui.setup();
+    gui.add(isProduction.set("production", false));
     gui.add(maxThreshold.setup("white max threshold", 255, 0.0, 255));
+    gui.add(leftThreshold.setup("left side ignore area", 0, 0.0, video.getWidth()));
+    gui.add(rightThreshold.setup("right side ignore area", 0, 0.0, video.getWidth()));
     gui.add(detectThreshold.setup("human detect threshold", 60000, 10000, 100000));
+    gui.add(opticalThreshold.setup("optical flow threshold to send OSC", 300, 0.0, 1000));
+    gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
 
 }
 
@@ -61,26 +71,50 @@ void ofApp::update(){
 
 
     shadowArea = 0;
-    prevBinaryImage = binaryImage;
 
 
-    binaryImage.setFromPixels(video.getPixels());
-    for(int y=0;y<video.getHeight();y++) {
-        for(int x=0;x<video.getWidth();x++) {
+    if(video.isFrameNew()){
+        binaryImage.setFromPixels(video.getPixels());
+        for(int y=0;y<video.getHeight();y++) {
+            for(int x=0;x<video.getWidth();x++) {
 
-            ofColor col = binaryImage.getColor(x, y);
+                ofColor col = binaryImage.getColor(x, y);
 
-            if (col.r > maxThreshold){
-                binaryImage.setColor(x, y, ofColor(0,0,0));
-            } else {
-                binaryImage.setColor(x, y, ofColor(255,255,255));
-                shadowArea++;
+                if (col.r > maxThreshold || x < leftThreshold || x > video.getWidth() - rightThreshold){
+                    binaryImage.setColor(x, y, ofColor(0,0,0));
+                } else {
+                    binaryImage.setColor(x, y, ofColor(255,255,255));
+                    shadowArea++;
+                }
             }
         }
-    }
-    binaryImage.update();
 
-    fb.calcOpticalFlow(binaryImage);
+        medianFilter(binaryImage);
+        binaryImage.update();
+
+        fb.calcOpticalFlow(binaryImage);
+
+        ofVec2f v = fb.getTotalFlow();
+        float movementTotal = (abs(v.x) + abs(v.y)) / 1000;
+
+        if(isMoving == false && movementTotal > opticalThreshold) {
+            isMoving = true;
+        }
+        if(isMoving == true && movementTotal < opticalThreshold) {
+            isMoving = false;
+            if (isProduction)
+                sendOSC();
+        }
+
+        opticalMovements.push_back(movementTotal);
+        if (opticalMovements.size() > maxNumMovement) {
+            opticalMovements.erase(opticalMovements.begin());
+        }
+    }
+
+
+
+    ofSetWindowTitle(ofToString(ofGetFrameRate()));
 
 
 }
@@ -106,7 +140,7 @@ void ofApp::draw(){
     for(int i=0;i<sampleImages.size();i++){
         ofImage drwImg = sampleImages[i];
         drwImg.resize(drwImg.getWidth()/2., drwImg.getHeight()/2.);
-        if (drawX + drwImg.getWidth() > ofGetWidth()) {
+        if (drawX + drwImg.getWidth() > video.getWidth()) {
             drawX = 0.0;
             drawY += drwImg.getHeight();
         }
@@ -119,7 +153,7 @@ void ofApp::draw(){
             ofNoFill();
 
             ofSetColor(255, 0, 0);
-            ofSetLineWidth(5);
+            ofSetLineWidth(3);
             ofDrawRectangle(drawX+5, drawY+5, drwImg.getWidth()-5, drwImg.getHeight()-5);
 
             ofPopStyle();
@@ -128,17 +162,65 @@ void ofApp::draw(){
         drawX += drwImg.getWidth();
     }
 
+    // draw left and right threshold line
+    ofPushStyle();
+    ofSetColor(255,87,34);
+    ofDrawLine(video.getWidth() + leftThreshold, 0, video.getWidth() + leftThreshold, video.getHeight());
+    ofDrawLine(ofGetWidth() - rightThreshold, 0, ofGetWidth() - rightThreshold, video.getHeight());
+    ofPopStyle();
+
     if(debugImage.isAllocated()) {
         debugImage.draw(ofGetWidth()/2. - debugImage.getWidth()/2., ofGetHeight() - debugImage.getHeight());
     }
 
+    // draw opticalFlow
     fb.draw(video.getWidth(), video.getHeight(), 640, 480);
 
+    // draw optical movement
+    ofPushStyle();
+    float prev = 0.0;
+    for(int i=0;i<movementWindowSize;i++){
+        prev += opticalMovements[i];
+    }
+    prev = prev / (float)movementWindowSize;
+
+    for(int i=movementWindowSize;i<opticalMovements.size();i++){
+        float now = 0.0;
+        for(int j=0;j<movementWindowSize;j++) {
+            now += opticalMovements[i-j];
+        }
+        now = now / (float)movementWindowSize;
+
+        float nowY = ofMap(now, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+        float prevY = ofMap(prev, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+        float prevX = ofMap(i-1, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
+        float nowX = ofMap(i, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
+
+        ofSetLineWidth(5);
+
+        if (now > opticalThreshold) {
+            ofSetColor(236,64,122);
+        } else {
+            ofSetColor(41,182,246);
+        }
+
+        ofDrawLine(prevX, prevY, nowX, nowY);
+
+        prev = now;
+
+    }
+    ofSetColor(102,187,106);
+    float thresholdLine = ofMap(opticalThreshold, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
+    ofDrawLine(video.getWidth(), thresholdLine, ofGetWidth(), thresholdLine);
+
+    ofPopStyle();
+
+
+    ofDrawBitmapString(ofToString(opticalMovements[opticalMovements.size()-1]), ofGetWidth()/2., ofGetHeight()/2. + 15);
 
     gui.draw();
 
-//    ofVec2f v = fb.getTotalFlow();
-//    ofDrawBitmapString("vector (x, y) = (" + ofToString(v.x) + ", " + ofToString(v.y) + ")", 10, video.getHeight() + 10);
+
 
 
 }
@@ -153,6 +235,7 @@ void ofApp::keyPressed(int key){
     if (key == 'r') {
         ofImage shadowImage;
         shadowImage = binaryImage;
+        shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
         shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
 
         recognizedID = shapeRecognizer(shadowImage, sampleImages);
@@ -162,9 +245,22 @@ void ofApp::keyPressed(int key){
 
         ofImage shadowImage;
         shadowImage = debugImage;
+        shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
         shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
 
         recognizedID = shapeRecognizer(shadowImage, sampleImages);
+        ofxOscMessage m;
+        m.setAddress("/pattern_id");
+        m.addIntArg(recognizedID);
+        sender.sendMessage(m, false);
+    }
+
+    if(key == 'm') {
+        ofxOscMessage m;
+        m.setAddress("/pattern_id");
+        m.addIntArg(recognizedID);
+        sender.sendMessage(m, false);
+
     }
 
 
@@ -223,4 +319,25 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
         debugImage.setImageType(OF_IMAGE_GRAYSCALE);
     }
     
+}
+
+void ofApp::recognizeSilhouette() {
+    ofImage shadowImage;
+    shadowImage = binaryImage;
+    shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
+    shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
+
+    recognizedID = shapeRecognizer(shadowImage, sampleImages);
+
+}
+
+void ofApp::sendOSC() {
+
+    recognizeSilhouette();
+
+    ofxOscMessage m;
+    m.setAddress("/pattern_id");
+    m.addIntArg(recognizedID);
+    sender.sendMessage(m, false);
+
 }

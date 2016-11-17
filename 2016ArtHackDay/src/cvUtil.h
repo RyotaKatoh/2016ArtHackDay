@@ -25,7 +25,7 @@
 //    return cv::Mat(pix.getHeight(), pix.getWidth(), CV_MAKETYPE(depth, pix.getNumChannels()), pix.getData(), 0);
 //}
 
-
+/*
 
 cv::Point2f toCv(ofVec2f vec)
 {
@@ -102,6 +102,6 @@ ofRectangle toOf(cv::Rect rect)
 {
     return ofRectangle(rect.x, rect.y, rect.width, rect.height);
 }
-
+*/
 
 #endif /* cvUtil_h */

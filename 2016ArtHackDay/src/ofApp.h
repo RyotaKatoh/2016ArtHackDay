@@ -3,7 +3,7 @@
 #include "ofMain.h"
 
 #include "ofxGui.h"
-
+#include "ofxOsc.h"
 #include "Flow.hpp"
 
 
@@ -26,11 +26,11 @@ public:
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
 
+    void recognizeSilhouette();
+    void sendOSC();
+
     ofVideoGrabber video;
     ofImage binaryImage;
-
-    ofImage prevBinaryImage;
-    ofImage opticalFlowImage;
 
     int shadowArea;
 
@@ -38,11 +38,19 @@ public:
 
     int recognizedID;
 
-
+    vector<float> opticalMovements;
+    bool isMoving;
 
     ofxPanel gui;
+    ofParameter<bool> isProduction;
     ofxFloatSlider maxThreshold;
     ofxIntSlider detectThreshold;
+    ofxFloatSlider opticalThreshold;
+    ofxFloatSlider maxOpticalThreshold;
+    ofxFloatSlider leftThreshold;
+    ofxFloatSlider rightThreshold;
+
+    ofxOscSender sender;
 
     FlowFarneback fb;
 

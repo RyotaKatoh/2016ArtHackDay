@@ -166,6 +166,8 @@ ofVec2f FlowFarneback::getTotalFlow(){
     return getTotalFlowInRegion(ofRectangle(0,0,flow.cols, flow.rows));
 }
 ofVec2f FlowFarneback::getAverageFlow(){
+    //Mat hoge = flow;
+    //return ofVec2f(0,0);
     return getAverageFlowInRegion(ofRectangle(0,0,flow.cols,flow.rows));
 }
 
