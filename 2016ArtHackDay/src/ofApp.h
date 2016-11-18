@@ -40,6 +40,8 @@ public:
 
     vector<float> opticalMovements;
     bool isMoving;
+    bool isShoot;
+    float lastAverageValue;
 
     ofxPanel gui;
     ofParameter<bool> isProduction;
@@ -49,6 +51,11 @@ public:
     ofxFloatSlider maxOpticalThreshold;
     ofxFloatSlider leftThreshold;
     ofxFloatSlider rightThreshold;
+
+    ofParameter<float> fbPyrScale, fbPolySigma;
+    ofParameter<int> fbLevels, fbIterations, fbPolyN, fbWinSize;
+    ofParameter<bool> fbUseGaussian;
+
 
     ofxOscSender sender;
 

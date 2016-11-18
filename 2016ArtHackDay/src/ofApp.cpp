@@ -8,8 +8,8 @@ int maxNumMovement = 6 * 30;
 int movementWindowSize = 6;
 float resizeRate = 8.0;
 
-#define HOST "localhost"
-#define PORT 12345
+#define HOST "172.20.10.3"
+#define PORT 5005
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -52,15 +52,26 @@ void ofApp::setup(){
 
     recognizedID = -1;
     isMoving = false;
+    isShoot = false;
+    lastAverageValue = 0.0;
 
     gui.setup();
     gui.add(isProduction.set("production", false));
     gui.add(maxThreshold.setup("white max threshold", 255, 0.0, 255));
-    gui.add(leftThreshold.setup("left side ignore area", 0, 0.0, video.getWidth()));
-    gui.add(rightThreshold.setup("right side ignore area", 0, 0.0, video.getWidth()));
+    gui.add(leftThreshold.setup("left threshold", 0, 0.0, video.getWidth()));
+    gui.add(rightThreshold.setup("right threshold", 0, 0.0, video.getWidth()));
     gui.add(detectThreshold.setup("human detect threshold", 60000, 10000, 100000));
     gui.add(opticalThreshold.setup("optical flow threshold to send OSC", 300, 0.0, 1000));
     gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
+
+    gui.add(fbPyrScale.set("fbPyrScale", .5, 0, .99));
+    gui.add(fbLevels.set("fbLevels", 4, 1, 8));
+    gui.add(fbIterations.set("fbIterations", 2, 1, 8));
+    gui.add(fbPolyN.set("fbPolyN", 7, 5, 10));
+    gui.add(fbPolySigma.set("fbPolySigma", 1.5, 1.1, 2));
+    gui.add(fbUseGaussian.set("fbUseGaussian", false));
+    gui.add(fbWinSize.set("winSize", 32, 4, 64));
+
 
 }
 
@@ -92,24 +103,43 @@ void ofApp::update(){
         medianFilter(binaryImage);
         binaryImage.update();
 
+
+        fb.setPyramidScale(fbPyrScale);
+        fb.setNumLevels(fbLevels);
+        fb.setWindowSize(fbWinSize);
+        fb.setNumIterations(fbIterations);
+        fb.setPolyN(fbPolyN);
+        fb.setPolySigma(fbPolySigma);
+        fb.setUseGaussian(fbUseGaussian);
+
         fb.calcOpticalFlow(binaryImage);
 
         ofVec2f v = fb.getTotalFlow();
         float movementTotal = (abs(v.x) + abs(v.y)) / 1000;
 
-        if(isMoving == false && movementTotal > opticalThreshold) {
-            isMoving = true;
-        }
-        if(isMoving == true && movementTotal < opticalThreshold) {
-            isMoving = false;
-            if (isProduction)
-                sendOSC();
-        }
 
         opticalMovements.push_back(movementTotal);
         if (opticalMovements.size() > maxNumMovement) {
             opticalMovements.erase(opticalMovements.begin());
         }
+
+
+        if(isMoving == false && lastAverageValue > opticalThreshold) {
+            isMoving = true;
+        }
+        if(isMoving == true && lastAverageValue < opticalThreshold) {
+            isMoving = false;
+            isShoot = true;
+            if (isProduction)
+                sendOSC();
+        } else {
+            isShoot = false;
+        }
+
+
+
+
+
     }
 
 
@@ -177,6 +207,7 @@ void ofApp::draw(){
     fb.draw(video.getWidth(), video.getHeight(), 640, 480);
 
     // draw optical movement
+
     if(opticalMovements.size() > movementWindowSize) {
     ofPushStyle();
     float prev = 0.0;
@@ -208,8 +239,12 @@ void ofApp::draw(){
             ofDrawLine(prevX, prevY, nowX, nowY);
             
             prev = now;
+
+            lastAverageValue = now;
             
         }
+
+
         ofSetColor(102,187,106);
         float thresholdLine = ofMap(opticalThreshold, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
         ofDrawLine(video.getWidth(), thresholdLine, ofGetWidth(), thresholdLine);
@@ -219,8 +254,11 @@ void ofApp::draw(){
     }
 
 
+    if(isShoot)
+        ofDrawBitmapString("Shoot!!!!", ofGetWidth() / 2., ofGetHeight() - 10);
 
     gui.draw();
+
 
 
 
@@ -259,8 +297,22 @@ void ofApp::keyPressed(int key){
 
     if(key == 'm') {
         ofxOscMessage m;
-        m.setAddress("/pattern_id");
-        m.addIntArg(recognizedID);
+        m.setAddress("/rot");
+        m.addIntArg(0);
+        m.addIntArg(0);
+        m.addIntArg(48);
+
+        sender.sendMessage(m, false);
+
+    }
+
+    if(key == 'n') {
+        ofxOscMessage m;
+        m.setAddress("/set");
+        m.addIntArg(0);
+        m.addIntArg(0);
+        m.addIntArg(48);
+
         sender.sendMessage(m, false);
 
     }
