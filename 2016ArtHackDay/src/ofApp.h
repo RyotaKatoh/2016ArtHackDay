@@ -39,6 +39,7 @@ public:
     int recognizedID;
 
     vector<float> opticalMovements;
+    vector<float> averageOpticalMovements;
     bool isMoving;
     bool isShoot;
     float lastAverageValue;
@@ -51,6 +52,7 @@ public:
     ofxFloatSlider maxOpticalThreshold;
     ofxFloatSlider leftThreshold;
     ofxFloatSlider rightThreshold;
+    ofxIntSlider stableWindowSize;
 
     ofParameter<float> fbPyrScale, fbPolySigma;
     ofParameter<int> fbLevels, fbIterations, fbPolyN, fbWinSize;

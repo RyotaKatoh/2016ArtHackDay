@@ -8,7 +8,8 @@ int maxNumMovement = 6 * 30;
 int movementWindowSize = 6;
 float resizeRate = 8.0;
 
-#define HOST "172.20.10.3"
+//#define HOST "172.20.10.3"
+#define HOST "localhost"
 #define PORT 5005
 
 //--------------------------------------------------------------
@@ -63,6 +64,7 @@ void ofApp::setup(){
     gui.add(detectThreshold.setup("human detect threshold", 60000, 10000, 100000));
     gui.add(opticalThreshold.setup("optical flow threshold to send OSC", 300, 0.0, 1000));
     gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
+    gui.add(stableWindowSize.setup("stable window size", 15, 1, 300));
 
     gui.add(fbPyrScale.set("fbPyrScale", .5, 0, .99));
     gui.add(fbLevels.set("fbLevels", 4, 1, 8));
@@ -85,6 +87,8 @@ void ofApp::update(){
 
 
     if(video.isFrameNew()){
+        
+        // update binary image
         binaryImage.setFromPixels(video.getPixels());
         for(int y=0;y<video.getHeight();y++) {
             for(int x=0;x<video.getWidth();x++) {
@@ -102,8 +106,9 @@ void ofApp::update(){
 
         medianFilter(binaryImage);
         binaryImage.update();
+        
 
-
+        // update opticalflow
         fb.setPyramidScale(fbPyrScale);
         fb.setNumLevels(fbLevels);
         fb.setWindowSize(fbWinSize);
@@ -122,27 +127,53 @@ void ofApp::update(){
         if (opticalMovements.size() > maxNumMovement) {
             opticalMovements.erase(opticalMovements.begin());
         }
-
-
-        if(isMoving == false && lastAverageValue > opticalThreshold) {
+        
+        // update average movement
+        averageOpticalMovements.clear();
+        if(opticalMovements.size() > movementWindowSize) {
+            
+            
+            for(int i=movementWindowSize;i<opticalMovements.size();i++){
+                float now = 0.0;
+                for(int j=0;j<movementWindowSize;j++) {
+                    now += opticalMovements[i-j];
+                }
+                now = now / (float)movementWindowSize;
+                
+                averageOpticalMovements.push_back(now);
+                if (averageOpticalMovements.size() > maxNumMovement) {
+                    averageOpticalMovements.erase(averageOpticalMovements.begin());
+                }
+                
+            }
+            
+        }
+        
+        if(averageOpticalMovements.size() > 0 && !isMoving && averageOpticalMovements[averageOpticalMovements.size() - 1] > opticalThreshold) {
             isMoving = true;
         }
-        if(isMoving == true && lastAverageValue < opticalThreshold) {
-            isMoving = false;
-            isShoot = true;
-            if (isProduction)
-                sendOSC();
-        } else {
-            isShoot = false;
+
+
+        
+        // recognize flag
+        if(averageOpticalMovements.size() > (stableWindowSize+1) && averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] > opticalThreshold) {
+            
+            for(int i=0;i<stableWindowSize;i++) {
+                if(averageOpticalMovements[averageOpticalMovements.size() - i-1] > opticalThreshold){
+                    isShoot = false;
+                    break;
+                }
+                
+                
+                isShoot = true;
+            
+            }
+        
         }
-
-
-
 
 
     }
-
-
+    
 
     ofSetWindowTitle(ofToString(ofGetFrameRate()));
 
@@ -208,27 +239,15 @@ void ofApp::draw(){
 
     // draw optical movement
 
-    if(opticalMovements.size() > movementWindowSize) {
-    ofPushStyle();
-    float prev = 0.0;
-        for(int i=0;i<movementWindowSize;i++){
-            prev += opticalMovements[i];
-        }
-        prev = prev / (float)movementWindowSize;
-        
-        for(int i=movementWindowSize;i<opticalMovements.size();i++){
-            float now = 0.0;
-            for(int j=0;j<movementWindowSize;j++) {
-                now += opticalMovements[i-j];
-            }
-            now = now / (float)movementWindowSize;
-            
+    if(averageOpticalMovements.size() > movementWindowSize) {
+        ofPushStyle();
+        for(int i=1;i<averageOpticalMovements.size();i++){
+            float now = averageOpticalMovements[i];
+            float prev = averageOpticalMovements[i-1];
             float nowY = ofMap(now, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
             float prevY = ofMap(prev, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
             float prevX = ofMap(i-1, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
             float nowX = ofMap(i, movementWindowSize-1, maxNumMovement, video.getWidth(), ofGetWidth());
-            
-            ofSetLineWidth(5);
             
             if (now > opticalThreshold) {
                 ofSetColor(236,64,122);
@@ -236,15 +255,11 @@ void ofApp::draw(){
                 ofSetColor(41,182,246);
             }
             
+            ofSetLineWidth(4);
             ofDrawLine(prevX, prevY, nowX, nowY);
-            
-            prev = now;
-
-            lastAverageValue = now;
-            
         }
-
-
+    
+        
         ofSetColor(102,187,106);
         float thresholdLine = ofMap(opticalThreshold, 0.0, maxOpticalThreshold, ofGetHeight(), ofGetHeight() - video.getHeight());
         ofDrawLine(video.getWidth(), thresholdLine, ofGetWidth(), thresholdLine);
@@ -254,8 +269,14 @@ void ofApp::draw(){
     }
 
 
-    if(isShoot)
-        ofDrawBitmapString("Shoot!!!!", ofGetWidth() / 2., ofGetHeight() - 10);
+    if(isShoot && isMoving){
+        cout<<"Shoot!!!"<<endl;
+        isShoot = false;
+        isMoving = false;
+        if(isProduction) {
+            sendOSC();
+        }
+    }
 
     gui.draw();
 
