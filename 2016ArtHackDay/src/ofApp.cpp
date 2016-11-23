@@ -3,13 +3,13 @@
 #include "cvUtil.h"
 #include "cv.h"
 
-int numSamples = 30;
+int numSamples = 100;
 int maxNumMovement = 6 * 30;
-int movementWindowSize = 6;
+int movementWindowSize = 3;
 float resizeRate = 8.0;
 
-//#define HOST "172.20.10.3"
-#define HOST "localhost"
+#define HOST "169.254.113.254"
+//#define HOST "localhost"
 #define PORT 5005
 
 //--------------------------------------------------------------
@@ -55,15 +55,19 @@ void ofApp::setup(){
     isMoving = false;
     isShoot = false;
     lastAverageValue = 0.0;
-
+    shootCount = 0;
+    
     gui.setup();
     gui.add(isProduction.set("production", false));
     gui.add(maxThreshold.setup("white max threshold", 255, 0.0, 255));
     gui.add(leftThreshold.setup("left threshold", 0, 0.0, video.getWidth()));
     gui.add(rightThreshold.setup("right threshold", 0, 0.0, video.getWidth()));
+    gui.add(topThreshold.setup("up threshold", 0, 0.0, video.getHeight()));
+    gui.add(bottomThreshold.setup("bottom threshold", 0, 0.0, video.getHeight()));
     gui.add(detectThreshold.setup("human detect threshold", 60000, 10000, 100000));
-    gui.add(opticalThreshold.setup("optical flow threshold to send OSC", 300, 0.0, 1000));
-    gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
+    gui.add(opticalThreshold.setup("optical flow threshold", 300, 0.0, 1000));
+    //gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
+    maxOpticalThreshold = 1000;
     gui.add(stableWindowSize.setup("stable window size", 15, 1, 300));
 
     gui.add(fbPyrScale.set("fbPyrScale", .5, 0, .99));
@@ -73,6 +77,9 @@ void ofApp::setup(){
     gui.add(fbPolySigma.set("fbPolySigma", 1.5, 1.1, 2));
     gui.add(fbUseGaussian.set("fbUseGaussian", false));
     gui.add(fbWinSize.set("winSize", 32, 4, 64));
+    gui.add(isFake.set("fake mode", false));
+    
+    gui.loadFromFile("settings.xml");
 
 
 }
@@ -95,7 +102,7 @@ void ofApp::update(){
 
                 ofColor col = binaryImage.getColor(x, y);
 
-                if (col.r > maxThreshold || x < leftThreshold || x > video.getWidth() - rightThreshold){
+                if (col.r > maxThreshold || x < leftThreshold || x > video.getWidth() - rightThreshold || y < topThreshold || y > video.getHeight() - bottomThreshold){
                     binaryImage.setColor(x, y, ofColor(0,0,0));
                 } else {
                     binaryImage.setColor(x, y, ofColor(255,255,255));
@@ -148,29 +155,61 @@ void ofApp::update(){
             }
             
         }
-        
-        if(averageOpticalMovements.size() > 0 && !isMoving && averageOpticalMovements[averageOpticalMovements.size() - 1] > opticalThreshold) {
-            isMoving = true;
+
+
+        maximumPoint.clear();
+        maximumPoint.assign(maxNumMovement, false);
+        bool prevIncrease = true;
+        for(int i=0;i<averageOpticalMovements.size();i++){
+            if(i+1 < averageOpticalMovements.size()){
+                bool increase = true;
+                if(averageOpticalMovements[i+1] - averageOpticalMovements[i] < 0){
+                    increase = false;
+                }
+                if(averageOpticalMovements[i] > opticalThreshold && prevIncrease && !increase) {
+                    maximumPoint[i] = true;
+ 
+                }
+                prevIncrease = increase;
+            }
         }
-
-
         
+        if(averageOpticalMovements.size() >= 2 && maximumPoint[averageOpticalMovements.size() - 2]){
+            isShoot = true;
+        } else {
+            isShoot = false;
+        }
+        
+        
+        /*
         // recognize flag
-        if(averageOpticalMovements.size() > (stableWindowSize+1) && averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] > opticalThreshold) {
-            
-            for(int i=0;i<stableWindowSize;i++) {
-                if(averageOpticalMovements[averageOpticalMovements.size() - i-1] > opticalThreshold){
-                    isShoot = false;
-                    break;
+         
+         
+         if(averageOpticalMovements.size() > 0 && !isMoving && averageOpticalMovements[averageOpticalMovements.size() - 1] > opticalThreshold) {
+         isMoving = true;
+         }
+
+         
+         
+        if(averageOpticalMovements.size() > (stableWindowSize+1)){
+            float stopMotionThreshold = averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] * 2.0 / 3.0;
+            if(averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] > opticalThreshold) {
+                
+                for(int i=0;i<stableWindowSize;i++) {
+                    if(averageOpticalMovements[averageOpticalMovements.size() - i-1] > stopMotionThreshold){
+                        isShoot = false;
+                        break;
+                    }
+                    
+                    
+                    isShoot = true;
+                    
                 }
                 
-                
-                isShoot = true;
-            
             }
-        
         }
-
+        */
+        
 
     }
     
@@ -223,11 +262,13 @@ void ofApp::draw(){
         drawX += drwImg.getWidth();
     }
 
-    // draw left and right threshold line
+    // draw top, bottom, left and right threshold line
     ofPushStyle();
     ofSetColor(255,87,34);
     ofDrawLine(video.getWidth() + leftThreshold, 0, video.getWidth() + leftThreshold, video.getHeight());
     ofDrawLine(ofGetWidth() - rightThreshold, 0, ofGetWidth() - rightThreshold, video.getHeight());
+    ofDrawLine(video.getWidth(), topThreshold, ofGetWidth(), topThreshold);
+    ofDrawLine(video.getWidth(), video.getHeight() - bottomThreshold, ofGetWidth(), video.getHeight() - bottomThreshold);
     ofPopStyle();
 
     if(debugImage.isAllocated()) {
@@ -257,6 +298,11 @@ void ofApp::draw(){
             
             ofSetLineWidth(4);
             ofDrawLine(prevX, prevY, nowX, nowY);
+            
+            if(maximumPoint[i]){
+                ofSetColor(0, 255, 0);
+                ofDrawCircle(nowX, nowY, 10);
+            }
         }
     
         
@@ -269,13 +315,15 @@ void ofApp::draw(){
     }
 
 
-    if(isShoot && isMoving){
+    if(isShoot && shadowArea > detectThreshold){
         cout<<"Shoot!!!"<<endl;
         isShoot = false;
-        isMoving = false;
-        if(isProduction) {
+        //isMoving = false;
+        
+        if(isProduction ) {
             sendOSC();
         }
+        shootCount ++;
     }
 
     gui.draw();
@@ -294,37 +342,50 @@ void ofApp::keyPressed(int key){
     }
 
     if (key == 'r') {
-        ofImage shadowImage;
-        shadowImage = binaryImage;
-        shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
-        shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
-
-        recognizedID = shapeRecognizer(shadowImage, sampleImages);
-    }
-
-    if (key == 't') {
-
-        ofImage shadowImage;
-        shadowImage = debugImage;
-        shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
-        shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
-
-        recognizedID = shapeRecognizer(shadowImage, sampleImages);
-        ofxOscMessage m;
-        m.setAddress("/pattern_id");
-        m.addIntArg(recognizedID);
-        sender.sendMessage(m, false);
+        sendOSC();
     }
 
     if(key == 'm') {
         ofxOscMessage m;
-        m.setAddress("/rot");
+        m.setAddress("/pattern");
         m.addIntArg(0);
-        m.addIntArg(0);
-        m.addIntArg(48);
 
         sender.sendMessage(m, false);
 
+    }
+    
+    if(key == '0') {
+        ofxOscMessage m;
+        m.setAddress("/pattern");
+        m.addIntArg(0);
+        
+        sender.sendMessage(m, false);
+        
+    }
+    if(key == '1') {
+        ofxOscMessage m;
+        m.setAddress("/pattern");
+        m.addIntArg(1);
+        
+        sender.sendMessage(m, false);
+        
+    }
+    
+    if(key == '2') {
+        ofxOscMessage m;
+        m.setAddress("/pattern");
+        m.addIntArg(2);
+        
+        sender.sendMessage(m, false);
+        
+    }
+
+    if(key == 'p') {
+        ofxOscMessage m;
+        m.setAddress("/ping");
+        
+        sender.sendMessage(m, false);
+        
     }
 
     if(key == 'n') {
@@ -401,8 +462,19 @@ void ofApp::recognizeSilhouette() {
     shadowImage = binaryImage;
     shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
     shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
+    
+    int realNumber = 5;
+    
+    vector<ofImage> samples;
+    if(isFake) {
+        samples = sampleImages;
+    } else {
+        for(int i=0;i<realNumber;i++){
+            samples.push_back(sampleImages[i]);
+        }
+    }
 
-    recognizedID = shapeRecognizer(shadowImage, sampleImages);
+    recognizedID = shapeRecognizer(shadowImage, samples);
 
 }
 
@@ -411,8 +483,9 @@ void ofApp::sendOSC() {
     recognizeSilhouette();
 
     ofxOscMessage m;
-    m.setAddress("/pattern_id");
+    m.setAddress("/pattern");
     m.addIntArg(recognizedID);
     sender.sendMessage(m, false);
+    cout<<"send ID: "<<recognizedID<<endl;
 
 }

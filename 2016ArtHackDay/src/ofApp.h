@@ -33,6 +33,8 @@ public:
     ofImage binaryImage;
 
     int shadowArea;
+    
+    int shootCount;
 
     vector<ofImage> sampleImages;
 
@@ -40,6 +42,7 @@ public:
 
     vector<float> opticalMovements;
     vector<float> averageOpticalMovements;
+    vector<bool> maximumPoint;
     bool isMoving;
     bool isShoot;
     float lastAverageValue;
@@ -52,11 +55,13 @@ public:
     ofxFloatSlider maxOpticalThreshold;
     ofxFloatSlider leftThreshold;
     ofxFloatSlider rightThreshold;
+    ofxFloatSlider topThreshold, bottomThreshold;
     ofxIntSlider stableWindowSize;
 
     ofParameter<float> fbPyrScale, fbPolySigma;
     ofParameter<int> fbLevels, fbIterations, fbPolyN, fbWinSize;
     ofParameter<bool> fbUseGaussian;
+    ofParameter<bool> isFake;
 
 
     ofxOscSender sender;
