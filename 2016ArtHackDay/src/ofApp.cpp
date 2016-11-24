@@ -1,6 +1,5 @@
 #include "ofApp.h"
 
-#include "cvUtil.h"
 #include "cv.h"
 
 int numSamples = 100;

@@ -17,7 +17,6 @@
 #include <opencv2/shape.hpp>
 #include <opencv2/objdetect.hpp>
 #include <opencv2/video.hpp>
-#include "cvUtil.h"
 
 
 static std::vector<cv::Point> simpleContour(const cv::Mat& src)
