@@ -8,8 +8,8 @@ int maxNumMovement = 6 * 30;
 int movementWindowSize = 3;
 float resizeRate = 8.0;
 
-#define HOST "169.254.113.254"
-//#define HOST "localhost"
+//#define HOST "169.254.113.254"
+#define HOST "localhost"
 #define PORT 5005
 
 //--------------------------------------------------------------
@@ -48,6 +48,11 @@ void ofApp::setup(){
             img.setImageType(OF_IMAGE_GRAYSCALE);
             sampleImages.push_back(img);
         }
+    }
+    
+    for(int i=0;i<sampleImages.size();i++){
+        vector<cv::Point> contour = simpleContour(toCv(sampleImages[i].getPixels()));
+        sampleContours.push_back(contour);
     }
 
 
@@ -340,6 +345,27 @@ void ofApp::keyPressed(int key){
         string fileName = "pose_sample_" + ofGetTimestampString() + ".jpg";
         binaryImage.save(fileName);
     }
+    
+    if (key == 't') {
+        ofImage shadowImage;
+        shadowImage = debugImage;
+        shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
+        shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
+        
+        int realNumber = 5;
+        
+        vector< vector<cv::Point> > samples;
+        
+        if(isFake) {
+            samples = sampleContours;
+        } else {
+            for(int i=0;i<realNumber;i++){
+                samples.push_back(sampleContours[i]);
+            }
+        }
+        
+        recognizedID = shapeRecognizer(shadowImage, samples);
+    }
 
     if (key == 'r') {
         sendOSC();
@@ -465,12 +491,13 @@ void ofApp::recognizeSilhouette() {
     
     int realNumber = 5;
     
-    vector<ofImage> samples;
+    vector< vector<cv::Point> > samples;
+    
     if(isFake) {
-        samples = sampleImages;
+        samples = sampleContours;
     } else {
         for(int i=0;i<realNumber;i++){
-            samples.push_back(sampleImages[i]);
+            samples.push_back(sampleContours[i]);
         }
     }
 

@@ -37,12 +37,14 @@ public:
     int shootCount;
 
     vector<ofImage> sampleImages;
-
+    vector< vector<cv::Point> > sampleContours;
+    
     int recognizedID;
 
     vector<float> opticalMovements;
     vector<float> averageOpticalMovements;
     vector<bool> maximumPoint;
+    
     bool isMoving;
     bool isShoot;
     float lastAverageValue;
