@@ -38,15 +38,11 @@ static std::vector<cv::Point> simpleContour(const cv::Mat& src)
     return contour_points;
 }
 
-int shapeRecognizer(ofImage &src, vector<ofImage> images) {
+int shapeRecognizer(ofImage &src, vector< vector<cv::Point> > contours) {
 
     vector<cv::Point> srcContours = simpleContour(toCv(src.getPixels()));
 
-    vector< vector<cv::Point> > contours;
-    for(int i=0;i<images.size();i++){
-        vector<cv::Point> contour = simpleContour(toCv(images[i].getPixels()));
-        contours.push_back(contour);
-    }
+
 
     cv::Ptr<cv::ShapeContextDistanceExtractor> mysc = cv::createShapeContextDistanceExtractor();
 
