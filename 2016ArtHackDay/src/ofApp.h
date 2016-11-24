@@ -6,6 +6,20 @@
 #include "ofxOsc.h"
 #include "Flow.hpp"
 
+class Recognizer: public ofThread {
+public:
+    
+    void setup(string host, int port, int numSamples, float resizeRate);
+    void recognize(ofImage &src, vector< vector<cv::Point> > &contours);
+    
+    
+    void sendOSC(ofImage &src, vector< vector<cv::Point> > &contours);
+    
+    int recognizedID;
+    ofxOscSender sender;
+    
+};
+
 
 class ofApp : public ofBaseApp{
     
@@ -33,13 +47,12 @@ public:
     ofImage binaryImage;
 
     int shadowArea;
-    
-    int shootCount;
 
     vector<ofImage> sampleImages;
     vector< vector<cv::Point> > sampleContours;
     
     int recognizedID;
+    
 
     vector<float> opticalMovements;
     vector<float> averageOpticalMovements;
@@ -48,7 +61,9 @@ public:
     bool isMoving;
     bool isShoot;
     float lastAverageValue;
-
+    float lastShootTime;
+    
+    
     ofxPanel gui;
     ofParameter<bool> isProduction;
     ofxFloatSlider maxThreshold;
@@ -59,6 +74,7 @@ public:
     ofxFloatSlider rightThreshold;
     ofxFloatSlider topThreshold, bottomThreshold;
     ofxIntSlider stableWindowSize;
+    ofxFloatSlider shootInterval;
 
     ofParameter<float> fbPyrScale, fbPolySigma;
     ofParameter<int> fbLevels, fbIterations, fbPolyN, fbWinSize;

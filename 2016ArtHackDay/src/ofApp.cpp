@@ -5,11 +5,42 @@
 int numSamples = 100;
 int maxNumMovement = 6 * 30;
 int movementWindowSize = 3;
-float resizeRate = 8.0;
+float resizeRate = 10.0;
 
 //#define HOST "169.254.113.254"
 #define HOST "localhost"
 #define PORT 5005
+
+void Recognizer::setup(string host, int port, int numSamples, float resizeRate){
+    
+    sender.setup(host, port);
+    recognizedID = -1;
+    
+}
+
+void Recognizer::recognize(ofImage &src, vector<vector<cv::Point> > &contours){
+    
+    ofImage shadowImage;
+    shadowImage = src;
+    shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
+    shadowImage.resize(src.getWidth()/resizeRate, src.getHeight()/resizeRate);
+    
+    recognizedID = shapeRecognizer(shadowImage, contours);
+    
+}
+
+void Recognizer::sendOSC(ofImage &src, vector< vector<cv::Point> > &contours){
+    
+    recognize(src, contours);
+    
+    ofxOscMessage m;
+    m.setAddress("/pattern");
+    m.addIntArg(recognizedID);
+    sender.sendMessage(m, false);
+    cout<<"send ID: "<<recognizedID<<endl;
+}
+
+
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -31,7 +62,9 @@ void ofApp::setup(){
 
     // set osc sender
     sender.setup(HOST, PORT);
-
+    
+    //recognizer.setup(HOST, PORT, numSamples, resizeRate);
+    //recognizer.startThread();
 
     binaryImage.allocate(video.getWidth(), video.getHeight(), OF_IMAGE_GRAYSCALE);
 
@@ -59,7 +92,7 @@ void ofApp::setup(){
     isMoving = false;
     isShoot = false;
     lastAverageValue = 0.0;
-    shootCount = 0;
+    lastShootTime = 0.0;
     
     gui.setup();
     gui.add(isProduction.set("production", false));
@@ -73,6 +106,7 @@ void ofApp::setup(){
     //gui.add(maxOpticalThreshold.setup("max optical flow value to visualize", 1000, 1000, 5000));
     maxOpticalThreshold = 1000;
     gui.add(stableWindowSize.setup("stable window size", 15, 1, 300));
+    gui.add(shootInterval.setup("shoot interval[sec]", 0.7, 0.5, 5.0));
 
     gui.add(fbPyrScale.set("fbPyrScale", .5, 0, .99));
     gui.add(fbLevels.set("fbLevels", 4, 1, 8));
@@ -185,34 +219,29 @@ void ofApp::update(){
         }
         
         
-        /*
-        // recognize flag
-         
-         
-         if(averageOpticalMovements.size() > 0 && !isMoving && averageOpticalMovements[averageOpticalMovements.size() - 1] > opticalThreshold) {
-         isMoving = true;
-         }
-
-         
-         
-        if(averageOpticalMovements.size() > (stableWindowSize+1)){
-            float stopMotionThreshold = averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] * 2.0 / 3.0;
-            if(averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] > opticalThreshold) {
-                
-                for(int i=0;i<stableWindowSize;i++) {
-                    if(averageOpticalMovements[averageOpticalMovements.size() - i-1] > stopMotionThreshold){
-                        isShoot = false;
-                        break;
-                    }
-                    
-                    
-                    isShoot = true;
-                    
-                }
-                
+        float lastMovement = 0.0;
+        if (opticalMovements.size() > 0)
+            lastMovement = opticalMovements[opticalMovements.size()-1];
+        
+        if(shadowArea > detectThreshold && lastMovement < opticalThreshold && ofGetElapsedTimef() - lastShootTime > shootInterval){
+            cout<<"Shoot!!!"<<endl;
+            lastShootTime = ofGetElapsedTimef();
+            isShoot = false;
+            //isMoving = false;
+            
+            if(isProduction ) {
+                sendOSC();
+                //recognizer.sendOSC(binaryImage, sampleContours);
             }
         }
-        */
+        
+        if(shadowArea > detectThreshold && lastMovement > opticalThreshold) {
+            ofxOscMessage m;
+            m.setAddress("/random");
+            
+            sender.sendMessage(m, false);
+            
+        }
         
 
     }
@@ -319,17 +348,6 @@ void ofApp::draw(){
     }
 
 
-    if(isShoot && shadowArea > detectThreshold){
-        cout<<"Shoot!!!"<<endl;
-        isShoot = false;
-        //isMoving = false;
-        
-        if(isProduction ) {
-            sendOSC();
-        }
-        shootCount ++;
-    }
-
     gui.draw();
 
 
@@ -351,23 +369,13 @@ void ofApp::keyPressed(int key){
         shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
         shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
         
-        int realNumber = 5;
         
-        vector< vector<cv::Point> > samples;
-        
-        if(isFake) {
-            samples = sampleContours;
-        } else {
-            for(int i=0;i<realNumber;i++){
-                samples.push_back(sampleContours[i]);
-            }
-        }
-        
-        recognizedID = shapeRecognizer(shadowImage, samples);
+        recognizedID = shapeRecognizer(shadowImage, sampleContours);
     }
 
     if (key == 'r') {
         sendOSC();
+        //recognizer.sendOSC(binaryImage, sampleContours);
     }
 
     if(key == 'm') {
@@ -488,19 +496,8 @@ void ofApp::recognizeSilhouette() {
     shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
     shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
     
-    int realNumber = 5;
     
-    vector< vector<cv::Point> > samples;
-    
-    if(isFake) {
-        samples = sampleContours;
-    } else {
-        for(int i=0;i<realNumber;i++){
-            samples.push_back(sampleContours[i]);
-        }
-    }
-
-    recognizedID = shapeRecognizer(shadowImage, samples);
+    recognizedID = shapeRecognizer(shadowImage, sampleContours);
 
 }
 
