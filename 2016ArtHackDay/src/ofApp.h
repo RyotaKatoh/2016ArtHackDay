@@ -6,6 +6,7 @@
 #include "ofxOsc.h"
 #include "Flow.hpp"
 
+#include "recognizer.hpp"
 
 class ofApp : public ofBaseApp{
     
@@ -40,12 +41,16 @@ public:
 
     int recognizedID;
 
+    Recognizer recognizer;
+
     vector<float> opticalMovements;
     vector<float> averageOpticalMovements;
     vector<bool> maximumPoint;
     bool isMoving;
     bool isShoot;
     float lastAverageValue;
+
+    int lastShootFrame;
 
     ofxPanel gui;
     ofParameter<bool> isProduction;
@@ -57,6 +62,7 @@ public:
     ofxFloatSlider rightThreshold;
     ofxFloatSlider topThreshold, bottomThreshold;
     ofxIntSlider stableWindowSize;
+    ofxIntSlider shootFrameNum;
 
     ofParameter<float> fbPyrScale, fbPolySigma;
     ofParameter<int> fbLevels, fbIterations, fbPolyN, fbWinSize;

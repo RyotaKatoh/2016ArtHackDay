@@ -3,10 +3,10 @@
 	<depth_max_threshold>124.95</depth_max_threshold>
 	<human_detect_threshold>60000</human_detect_threshold>
 <group/>
-<production>0</production>
+<production>1</production>
 	<white_max_threshold>154.275</white_max_threshold>
 	<left_threshold>0</left_threshold>
-	<right_threshold>224</right_threshold>
+	<right_threshold>140.8</right_threshold>
 	<up_threshold>0</up_threshold>
 	<bottom_threshold>0</bottom_threshold>
 	<optical_flow_threshold>175</optical_flow_threshold>
@@ -19,4 +19,5 @@
 	<fbUseGaussian>0</fbUseGaussian>
 	<winSize>32</winSize>
 <fake_mode>0</fake_mode>
+<shoot_frame>11</shoot_frame>
 </group>

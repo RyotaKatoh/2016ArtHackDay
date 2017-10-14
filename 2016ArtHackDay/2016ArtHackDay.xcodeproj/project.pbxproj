@@ -30,6 +30,7 @@
 		C1981C0E1DDB7166000B11E9 /* Utilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C1981C0C1DDB7166000B11E9 /* Utilities.cpp */; };
 		C1981C151DDB7222000B11E9 /* ETF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C1981C131DDB7222000B11E9 /* ETF.cpp */; };
 		C1981C161DDB7222000B11E9 /* fdog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C1981C141DDB7222000B11E9 /* fdog.cpp */; };
+		C1F93A981DE7288900347011 /* recognizer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C1F93A961DE7288900347011 /* recognizer.cpp */; };
 		C4782ECC372420ACE0615B74 /* OscPrintReceivedElements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC8881B3C8C0A1C45F042E7A /* OscPrintReceivedElements.cpp */; };
 		E4328149138ABC9F0047C5CB /* openFrameworksDebug.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E4328148138ABC890047C5CB /* openFrameworksDebug.a */; };
 		E4B69E200A3A1BDC003C02F2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E4B69E1D0A3A1BDC003C02F2 /* main.cpp */; };
@@ -118,6 +119,8 @@
 		C1981C121DDB7218000B11E9 /* myvec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = myvec.h; sourceTree = "<group>"; };
 		C1981C131DDB7222000B11E9 /* ETF.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ETF.cpp; sourceTree = "<group>"; };
 		C1981C141DDB7222000B11E9 /* fdog.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = fdog.cpp; sourceTree = "<group>"; };
+		C1F93A961DE7288900347011 /* recognizer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = recognizer.cpp; sourceTree = "<group>"; };
+		C1F93A971DE7288900347011 /* recognizer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = recognizer.hpp; sourceTree = "<group>"; };
 		C2FAC65C491D4231379F3298 /* ofxOscReceiver.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; name = ofxOscReceiver.cpp; path = ../../../addons/ofxOsc/src/ofxOscReceiver.cpp; sourceTree = SOURCE_ROOT; };
 		C58862C6D212C8E8A83810F4 /* ofxOscMessage.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = ofxOscMessage.h; path = ../../../addons/ofxOsc/src/ofxOscMessage.h; sourceTree = SOURCE_ROOT; };
 		C6937888E126BADC8777423B /* OscTypes.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = OscTypes.h; path = ../../../addons/ofxOsc/libs/oscpack/src/osc/OscTypes.h; sourceTree = SOURCE_ROOT; };
@@ -321,6 +324,8 @@
 				E4B69E1F0A3A1BDC003C02F2 /* ofApp.h */,
 				34B853546413FF31B449E520 /* cvUtil.h */,
 				C1981C041DDB587D000B11E9 /* cv.h */,
+				C1F93A961DE7288900347011 /* recognizer.cpp */,
+				C1F93A971DE7288900347011 /* recognizer.hpp */,
 			);
 			path = src;
 			sourceTree = SOURCE_ROOT;
@@ -455,6 +460,7 @@
 				F285EB3169F1566CA3D93C20 /* ofxPanel.cpp in Sources */,
 				837220E80EB56CD44AD27F2A /* ofxSlider.cpp in Sources */,
 				C1981C151DDB7222000B11E9 /* ETF.cpp in Sources */,
+				C1F93A981DE7288900347011 /* recognizer.cpp in Sources */,
 				B56FE57CC35806596D38118C /* ofxSliderGroup.cpp in Sources */,
 				C1981C0B1DDB6A83000B11E9 /* Wrappers.cpp in Sources */,
 				1CD33E884D9E3358252E82A1 /* ofxToggle.cpp in Sources */,

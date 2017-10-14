@@ -8,8 +8,8 @@ int maxNumMovement = 6 * 30;
 int movementWindowSize = 3;
 float resizeRate = 8.0;
 
-#define HOST "169.254.113.254"
-//#define HOST "localhost"
+//#define HOST "169.254.113.254"
+#define HOST "localhost"
 #define PORT 5005
 
 //--------------------------------------------------------------
@@ -31,7 +31,7 @@ void ofApp::setup(){
     video.initGrabber(640, 480);
 
     // set osc sender
-    sender.setup(HOST, PORT);
+    //sender.setup(HOST, PORT);
 
 
     binaryImage.allocate(video.getWidth(), video.getHeight(), OF_IMAGE_GRAYSCALE);
@@ -39,16 +39,18 @@ void ofApp::setup(){
 
 
     // load sample images
-    ofFile file;
-    for(int i=0;i<numSamples;i++){
-        ofImage img;
-        if (file.doesFileExist(ofToDataPath(ofToString(i) + ".jpg"))){
-            img.load(ofToString(i) + ".jpg");
-            img.resize(img.getWidth()/resizeRate, img.getHeight()/resizeRate);
-            img.setImageType(OF_IMAGE_GRAYSCALE);
-            sampleImages.push_back(img);
-        }
-    }
+//    ofFile file;
+//    for(int i=0;i<numSamples;i++){
+//        ofImage img;
+//        if (file.doesFileExist(ofToDataPath(ofToString(i) + ".jpg"))){
+//            img.load(ofToString(i) + ".jpg");
+//            img.resize(img.getWidth()/resizeRate, img.getHeight()/resizeRate);
+//            img.setImageType(OF_IMAGE_GRAYSCALE);
+//            sampleImages.push_back(img);
+//        }
+//    }
+
+    recognizer.setup(HOST, PORT, numSamples, resizeRate);
 
 
     recognizedID = -1;
@@ -56,7 +58,8 @@ void ofApp::setup(){
     isShoot = false;
     lastAverageValue = 0.0;
     shootCount = 0;
-    
+    lastShootFrame = 0;
+
     gui.setup();
     gui.add(isProduction.set("production", false));
     gui.add(maxThreshold.setup("white max threshold", 255, 0.0, 255));
@@ -78,6 +81,7 @@ void ofApp::setup(){
     gui.add(fbUseGaussian.set("fbUseGaussian", false));
     gui.add(fbWinSize.set("winSize", 32, 4, 64));
     gui.add(isFake.set("fake mode", false));
+    gui.add(shootFrameNum.setup("shoot frame", 30, 6, 60));
     
     gui.loadFromFile("settings.xml");
 
@@ -91,7 +95,6 @@ void ofApp::update(){
 
 
     shadowArea = 0;
-
 
     if(video.isFrameNew()){
         
@@ -179,37 +182,22 @@ void ofApp::update(){
         } else {
             isShoot = false;
         }
-        
-        
-        /*
-        // recognize flag
-         
-         
-         if(averageOpticalMovements.size() > 0 && !isMoving && averageOpticalMovements[averageOpticalMovements.size() - 1] > opticalThreshold) {
-         isMoving = true;
-         }
 
-         
-         
-        if(averageOpticalMovements.size() > (stableWindowSize+1)){
-            float stopMotionThreshold = averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] * 2.0 / 3.0;
-            if(averageOpticalMovements[averageOpticalMovements.size() - (stableWindowSize+1)] > opticalThreshold) {
-                
-                for(int i=0;i<stableWindowSize;i++) {
-                    if(averageOpticalMovements[averageOpticalMovements.size() - i-1] > stopMotionThreshold){
-                        isShoot = false;
-                        break;
-                    }
-                    
-                    
-                    isShoot = true;
-                    
-                }
-                
+        if( (isShoot && shadowArea > detectThreshold && ofGetFrameNum() - lastShootFrame > ofGetFrameRate()) || (shadowArea > detectThreshold && ofGetFrameNum() % shootFrameNum == 0 && ofGetFrameNum() - lastShootFrame > ofGetFrameRate() )){
+//        if( (isShoot && shadowArea > detectThreshold && ofGetFrameNum() - lastShootFrame > ofGetFrameRate() && !recognizer.isThreadRunning()) || (shadowArea > detectThreshold && ofGetFrameNum() % shootFrameNum == 0 && ofGetFrameNum() - lastShootFrame > ofGetFrameRate() && recognizer.isThreadRunning())){
+            cout<<"Shoot!!!"<<endl;
+            lastShootFrame = ofGetFrameNum();
+            isShoot = false;
+            //isMoving = false;
+
+            if(isProduction ) {
+                // sendOSC();
+                //recognizer.sendOSC(binaryImage, isFake);
             }
+            shootCount ++;
         }
-        */
-        
+
+
 
     }
     
@@ -236,9 +224,10 @@ void ofApp::draw(){
 
 
 
+    /*
     float drawX =0.0, drawY = video.getHeight() + 15.0;
-    for(int i=0;i<sampleImages.size();i++){
-        ofImage drwImg = sampleImages[i];
+    for(int i=0;i<recognizer.sampleImages.size();i++){
+        ofImage drwImg = recognizer.sampleImages[i];
         drwImg.resize(drwImg.getWidth()/2., drwImg.getHeight()/2.);
         if (drawX + drwImg.getWidth() > video.getWidth()) {
             drawX = 0.0;
@@ -247,7 +236,7 @@ void ofApp::draw(){
 
         drwImg.draw(drawX, drawY);
 
-        if(i == recognizedID) {
+        if(i == recognizer.recognizedID) {
             ofPushStyle();
 
             ofNoFill();
@@ -261,6 +250,7 @@ void ofApp::draw(){
         
         drawX += drwImg.getWidth();
     }
+     */
 
     // draw top, bottom, left and right threshold line
     ofPushStyle();
@@ -315,17 +305,6 @@ void ofApp::draw(){
     }
 
 
-    if(isShoot && shadowArea > detectThreshold){
-        cout<<"Shoot!!!"<<endl;
-        isShoot = false;
-        //isMoving = false;
-        
-        if(isProduction ) {
-            sendOSC();
-        }
-        shootCount ++;
-    }
-
     gui.draw();
 
 
@@ -342,7 +321,8 @@ void ofApp::keyPressed(int key){
     }
 
     if (key == 'r') {
-        sendOSC();
+        //sendOSC();
+        //recognizer.sendOSC(binaryImage, isFake);
     }
 
     if(key == 'm') {
@@ -463,7 +443,7 @@ void ofApp::recognizeSilhouette() {
     shadowImage.setImageType(OF_IMAGE_GRAYSCALE);
     shadowImage.resize(binaryImage.getWidth()/resizeRate, binaryImage.getHeight()/resizeRate);
     
-    int realNumber = 5;
+    int realNumber = 14;
     
     vector<ofImage> samples;
     if(isFake) {
