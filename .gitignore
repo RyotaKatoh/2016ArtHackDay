@@ -1,4 +1,5 @@
 2016ArtHackDayCV
-2016ArtHackDay/bin/data/*.jpg
-2016ArtHackDay/bin/kame
-2016ArtHackDay/bin/old
+echo_tech_computervision/bin/data/*.jpg
+echo_tech_computervision/bin/production
+echo_tech_computervision/bin/sample/*
+echo_tech_computervision/bin/old
